@@ -6,7 +6,6 @@ import { DynamicClueIllustration } from './DynamicClueIllustration';
 import { XiaoZhiModal } from './XiaoZhiModal';
 import { ScratchpadModal } from './ScratchpadModal';
 import { InformaticsCardModal } from './InformaticsCardModal';
-import { SideNavBar } from './SideNavBar';
 import { AmbientStarfieldCanvas } from './AmbientStarfieldCanvas';
 import { HyperspaceTransition } from './HyperspaceTransition';
 import { sounds } from '../utils/audio';
@@ -55,7 +54,6 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const [showXiaoZhiModal, setShowXiaoZhiModal] = useState<boolean>(false);
   const [showScratchpad, setShowScratchpad] = useState<boolean>(false);
   const [showInformaticsCard, setShowInformaticsCard] = useState<boolean>(false);
-  const [activeSideTab, setActiveSideTab] = useState<string>('tasks');
   const [secondsRemaining, setSecondsRemaining] = useState<number>(765); // 12:45
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean>(false);
@@ -313,7 +311,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const currentExp = answeredCount * 120;
 
   return (
-    <div className="flex-1 flex flex-col md:pl-20 min-h-screen bg-slate-900/90 text-slate-100 relative pb-28 select-none overflow-hidden font-sans">
+    <div className="w-full h-screen bg-slate-900/95 text-slate-100 relative select-none overflow-hidden font-sans flex flex-col justify-between">
       
       {/* 1. Atmospheric Ambient Starfield & Quantum Particle Canvas */}
       <AmbientStarfieldCanvas />
@@ -342,24 +340,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         questionTitle={question.stemText}
       />
 
-      {/* Side Navigation Bar */}
-      <SideNavBar
-        activeTab={activeSideTab}
-        onSelectTab={(tab) => {
-          setActiveSideTab(tab);
-          if (tab === 'timer') {
-            setShowTimerModal(true);
-          } else if (tab === 'progress') {
-            setShowProgressModal(true);
-          }
-        }}
-        timeRemainingText={formatTimer(secondsRemaining)}
-        onOpenAssistant={() => setShowXiaoZhiModal(true)}
-        onExit={() => setShowExitConfirmModal(true)}
-      />
-
-      {/* Main Holographic Cockpit Zero-Scroll Container */}
-      <div className="w-full h-[calc(100vh-64px)] flex flex-col pl-16 sm:pl-20 pr-3 sm:pr-5 py-2.5 overflow-hidden select-none justify-between relative z-10">
+      {/* Main Holographic Cockpit Zero-Scroll Container (Full Screen Width & Height) */}
+      <div className="w-full h-full flex flex-col px-3 sm:px-5 py-2.5 overflow-hidden select-none justify-between relative z-10">
         
         {/* Floating Game Combo Toast Notification */}
         {comboToast && (

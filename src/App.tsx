@@ -113,13 +113,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Top Navigation Bar */}
-      <TopNavBar
-        currentView={currentView}
-        onNavigate={handleNavigate}
-        onRequestReset={() => setShowResetModal(true)}
-        subTitle={currentView === 'assessment' ? currentSubTitle : undefined}
-      />
+      {/* Top Navigation Bar (Hidden during assessment mode for 100% full-screen cockpit immersion) */}
+      {currentView !== 'assessment' && (
+        <TopNavBar
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          onRequestReset={() => setShowResetModal(true)}
+        />
+      )}
 
       {/* Main Content Area depending on current active view */}
       <main key={sessionKey} className="flex-1 flex flex-col">
