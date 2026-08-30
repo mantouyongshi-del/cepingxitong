@@ -60,6 +60,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean>(false);
   const [isStoryExpanded, setIsStoryExpanded] = useState<boolean>(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
 
   // Sync initialIndex when it changes externally
   useEffect(() => {
@@ -249,7 +250,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
     if (currentIdx > 0) {
       setCurrentIdx(currentIdx - 1);
     } else {
-      onBackToLobby();
+      setShowExitConfirmModal(true);
     }
   };
 
@@ -299,7 +300,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         }}
         timeRemainingText={formatTimer(secondsRemaining)}
         onOpenAssistant={() => setShowXiaoZhiModal(true)}
-        onExit={onBackToLobby}
+        onExit={() => setShowExitConfirmModal(true)}
       />
 
       {/* Main Assessment Full-Screen Zero-Scroll Container */}
@@ -699,7 +700,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               {/* Secondary Sub-actions Row */}
               <div className="flex items-center justify-between gap-2 px-1">
                 <button
-                  onClick={onBackToLobby}
+                  onClick={() => {
+                    sounds.playTap();
+                    setShowExitConfirmModal(true);
+                  }}
                   className="text-xs font-bold text-slate-400 hover:text-slate-700 cursor-pointer transition-colors flex items-center gap-1"
                 >
                   <span>🏠 返回大厅</span>
@@ -718,6 +722,79 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         </div>
 
       </div>
+
+      {/* Exit Confirmation Dialog Modal */}
+      {showExitConfirmModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in select-none"
+          onClick={() => setShowExitConfirmModal(false)}
+        >
+          <div
+            className="bg-white rounded-[32px] max-w-md w-full border-4 border-amber-300 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-2xl shrink-0">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-slate-900 leading-tight">
+                    确认终止答题并返回大厅？
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold mt-0.5">
+                    当前测评正在进行中（已作答 {Object.keys(userAnswers).length + (selectedOption && !userAnswers[question.id] ? 1 : 0)} / {activeQuestions.length} 关）
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playTap();
+                  setShowExitConfirmModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Warning Details Callout */}
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-2 text-xs text-amber-950">
+              <div className="flex items-center gap-1.5 font-black text-amber-900 text-sm">
+                <span>🚨 重要提示：</span>
+              </div>
+              <p className="leading-relaxed font-medium">
+                若现在返回大厅，<strong className="text-rose-700 font-black">本次测评未完成的答题进度将无法保留</strong>。下次测评需要重新开始。
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                onClick={() => {
+                  sounds.playSelect();
+                  setShowExitConfirmModal(false);
+                }}
+                className="py-3 px-4 rounded-2xl bg-[#07C160] hover:bg-[#059669] text-white font-black text-sm border-b-3 border-[#005225] shadow-md shadow-[#07C160]/25 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>继续答题 ✍️</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sounds.playTap();
+                  setShowExitConfirmModal(false);
+                  onBackToLobby();
+                }}
+                className="py-3 px-4 rounded-2xl bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 hover:border-rose-300 font-black text-sm border-2 border-slate-200 cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>终止并退出 🏠</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading Modal with Progress when computing capability profile */}
       {isCalculatingProfile && (
