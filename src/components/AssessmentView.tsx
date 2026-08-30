@@ -212,13 +212,33 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const handleNextTask = () => {
     setShowAnswerFeedback(false);
     setIsAnswerLocked(false);
+
+    // Save current selection if made
+    const latestAnswers = {
+      ...userAnswers,
+      ...(selectedOption ? { [question.id]: selectedOption } : {}),
+    };
+    if (selectedOption) {
+      setUserAnswers(latestAnswers);
+    }
+
     if (currentIdx < activeQuestions.length - 1) {
       setCurrentIdx(currentIdx + 1);
     } else {
-      const latestAnswers = {
-        ...userAnswers,
-        ...(selectedOption ? { [question.id]: selectedOption } : {}),
-      };
+      // Must answer ALL questions to generate capability profile
+      const unanswered = activeQuestions.filter((q) => !latestAnswers[q.id]);
+      if (unanswered.length > 0) {
+        sounds.playTap();
+        const firstUnansweredIndex = activeQuestions.findIndex((q) => !latestAnswers[q.id]);
+        alert(
+          `还有 ${unanswered.length} 道题目尚未作答（例如第 ${firstUnansweredIndex + 1} 关），必须完成全部答题后才能交卷生成能力画像！`
+        );
+        if (firstUnansweredIndex !== -1) {
+          setCurrentIdx(firstUnansweredIndex);
+          setSelectedOption(latestAnswers[activeQuestions[firstUnansweredIndex].id] || '');
+        }
+        return;
+      }
       startCalculatingProfileAndNavigate(latestAnswers);
     }
   };
@@ -685,18 +705,11 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   <span>🏠 返回大厅</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    if (!isAnswerLocked && selectedOption) {
-                      setUserAnswers((prev) => ({ ...prev, [question.id]: selectedOption }));
-                    }
-                    startCalculatingProfileAndNavigate();
-                  }}
-                  className="text-xs font-black text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-1 rounded-full border border-emerald-200 cursor-pointer flex items-center gap-1 transition-all"
-                >
-                  <BarChart3 className="w-3.5 h-3.5 text-[#07C160]" />
-                  <span>提前交卷 / 生成画像</span>
-                </button>
+                {/* Real-time Answering Progress Badge */}
+                <div className="flex items-center gap-1.5 text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-[#07C160] animate-pulse"></span>
+                  <span>答题进度：{Object.keys(userAnswers).length + (selectedOption && !userAnswers[question.id] ? 1 : 0)} / {activeQuestions.length} 关</span>
+                </div>
               </div>
             </div>
 
