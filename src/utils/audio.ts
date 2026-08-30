@@ -1,10 +1,15 @@
-// Web Audio Synthesizer for friendly game sound effects
+// Web Audio Synthesizer for friendly game sound effects & ambient background soundscape
 class SoundEngine {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
+  private bgmInterval: number | null = null;
+  public isBgmPlaying: boolean = false;
 
   toggleMute(): boolean {
     this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.stopBgm();
+    }
     return this.isMuted;
   }
 
@@ -42,13 +47,12 @@ class SoundEngine {
 
       osc.start();
       osc.stop(this.ctx.currentTime + 0.08);
-    } catch {
-      // Audio not supported or blocked
-    }
+    } catch {}
   }
 
   // Option selected pop
   playSelect() {
+    if (this.isMuted) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -72,6 +76,7 @@ class SoundEngine {
 
   // Success lock chime
   playLockSuccess() {
+    if (this.isMuted) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -98,6 +103,7 @@ class SoundEngine {
 
   // Robot beep
   playRobot() {
+    if (this.isMuted) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -122,6 +128,7 @@ class SoundEngine {
 
   // Game Combo streak sound with ascending pitch
   playCombo(comboLevel: number = 1) {
+    if (this.isMuted) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -147,8 +154,33 @@ class SoundEngine {
     } catch {}
   }
 
+  // Hyperspace warp / Portal jump sound
+  playWarp() {
+    if (this.isMuted) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.35);
+
+      gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.4);
+    } catch {}
+  }
+
   // Energy crystal charge sound
   playCrystalCharge() {
+    if (this.isMuted) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -168,6 +200,51 @@ class SoundEngine {
       osc.start();
       osc.stop(this.ctx.currentTime + 0.25);
     } catch {}
+  }
+
+  // Generative Ambient Space Synthesizer (Zero-dependency relaxing cosmic arpeggios)
+  startBgm() {
+    if (this.isMuted || this.isBgmPlaying) return;
+    this.isBgmPlaying = true;
+    this.initCtx();
+
+    // Pentatonic calm ambient scale (C major pentatonic: C4, D4, E4, G4, A4, C5, E5)
+    const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 659.25];
+    let noteIdx = 0;
+
+    this.bgmInterval = window.setInterval(() => {
+      if (!this.ctx || this.isMuted || !this.isBgmPlaying) return;
+      try {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Warm sine wave chime
+        osc.type = 'sine';
+        const freq = scale[noteIdx % scale.length];
+        noteIdx = (noteIdx + Math.floor(Math.random() * 3) + 1) % scale.length;
+
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+        // Soft, relaxing envelope
+        gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.025, this.ctx.currentTime + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.8);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 1.8);
+      } catch {}
+    }, 1200);
+  }
+
+  stopBgm() {
+    this.isBgmPlaying = false;
+    if (this.bgmInterval) {
+      clearInterval(this.bgmInterval);
+      this.bgmInterval = null;
+    }
   }
 
   // Speech TTS for question reading

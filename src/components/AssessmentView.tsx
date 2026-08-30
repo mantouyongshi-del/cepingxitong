@@ -7,6 +7,8 @@ import { XiaoZhiModal } from './XiaoZhiModal';
 import { ScratchpadModal } from './ScratchpadModal';
 import { InformaticsCardModal } from './InformaticsCardModal';
 import { SideNavBar } from './SideNavBar';
+import { AmbientStarfieldCanvas } from './AmbientStarfieldCanvas';
+import { HyperspaceTransition } from './HyperspaceTransition';
 import { sounds } from '../utils/audio';
 import confetti from 'canvas-confetti';
 import {
@@ -14,21 +16,19 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Rocket,
   Check,
-  Heart,
   Volume2,
   Brain,
   Bot,
   HelpCircle,
   Sparkles,
-  Loader2,
   CheckCircle2,
-  Cpu,
-  BarChart3,
   Edit3,
   Lightbulb,
   Zap,
+  Music,
+  Radio,
+  Flame,
 } from 'lucide-react';
 
 interface AssessmentViewProps {
@@ -64,6 +64,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
   const [comboStreak, setComboStreak] = useState<number>(0);
   const [comboToast, setComboToast] = useState<{ text: string; sub: string } | null>(null);
+  const [isWarping, setIsWarping] = useState<boolean>(false);
+  const [isBgmActive, setIsBgmActive] = useState<boolean>(false);
 
   // Sync initialIndex when it changes externally
   useEffect(() => {
@@ -97,6 +99,24 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Cleanup BGM on unmount
+  useEffect(() => {
+    return () => {
+      sounds.stopBgm();
+    };
+  }, []);
+
+  const handleToggleBgm = () => {
+    sounds.playTap();
+    if (isBgmActive) {
+      sounds.stopBgm();
+      setIsBgmActive(false);
+    } else {
+      sounds.startBgm();
+      setIsBgmActive(true);
+    }
+  };
 
   if (!question || activeQuestions.length === 0) {
     return (
@@ -202,25 +222,24 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
 
     // Step 2: Data & Innovation Dimension
     setTimeout(() => {
-      setCalcProgress(78);
-      setCalcStepText('正在计算【数据处理】与【创新应用】核心素养...');
-      setCompletedSteps(['答题数据收集完毕', '逻辑与算法评估完成']);
-    }, 950);
+      setCalcProgress(74);
+      setCalcStepText('正在计算【数据抽象】与【数字创造】综合得分...');
+      setCompletedSteps(['答题数据收集完毕', '计算思维五维能力模型构建']);
+    }, 1000);
 
-    // Step 3: Radar Chart & Advice Synthesis
+    // Step 3: Peer Norms & Piaget Cognitive Stage
     setTimeout(() => {
-      setCalcProgress(100);
-      setCalcStepText('能力画像构建完成！即将呈现专属四维雷达图与进阶秘籍...');
+      setCalcProgress(96);
+      setCalcStepText('正在匹配同龄人 Bebras 常模击败率与皮亚杰认知定位...');
       setCompletedSteps([
         '答题数据收集完毕',
-        '逻辑与算法评估完成',
-        '四维核心素养已对齐',
-        '能力画像生成完毕',
+        '计算思维五维能力模型构建',
+        '同龄人击败率 (Percentile) 换算',
       ]);
       try {
         confetti({
-          particleCount: 60,
-          spread: 70,
+          particleCount: 80,
+          spread: 100,
           origin: { y: 0.6 },
           colors: ['#07C160', '#FFD54F', '#4FC3F7', '#FF8A80'],
         });
@@ -248,7 +267,12 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
     }
 
     if (currentIdx < activeQuestions.length - 1) {
-      setCurrentIdx(currentIdx + 1);
+      // Trigger Hyperspace transition effect
+      sounds.playWarp();
+      setIsWarping(true);
+      setTimeout(() => {
+        setCurrentIdx(currentIdx + 1);
+      }, 150);
     } else {
       // Must answer ALL questions to generate capability profile
       const unanswered = activeQuestions.filter((q) => !latestAnswers[q.id]);
@@ -288,9 +312,19 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
     }
   };
 
+  const answeredCount = Object.keys(userAnswers).length + (selectedOption && !userAnswers[question.id] ? 1 : 0);
+  const currentExp = answeredCount * 120;
+
   return (
-    <div className="flex-1 flex flex-col md:pl-20 min-h-screen bg-gradient-to-br from-[#F9FBF9] via-[#e3f5eb]/40 to-[#e8f5e9] relative pb-28">
-      {/* Interactive Tool Modals */}
+    <div className="flex-1 flex flex-col md:pl-20 min-h-screen bg-slate-900/90 text-slate-100 relative pb-28 select-none overflow-hidden font-sans">
+      
+      {/* 1. Atmospheric Ambient Starfield & Quantum Particle Canvas */}
+      <AmbientStarfieldCanvas />
+
+      {/* 2. Hyperspace Warp Speed Level Transition */}
+      <HyperspaceTransition isActive={isWarping} onComplete={() => setIsWarping(false)} />
+
+      {/* 3. Interactive Tool Modals */}
       <XiaoZhiModal
         isOpen={showXiaoZhiModal}
         onClose={() => setShowXiaoZhiModal(false)}
@@ -311,7 +345,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         questionTitle={question.stemText}
       />
 
-      {/* Side Navigation Bar (Hidden on Mobile, Expanded on hover on Desktop) */}
+      {/* Side Navigation Bar */}
       <SideNavBar
         activeTab={activeSideTab}
         onSelectTab={(tab) => {
@@ -327,40 +361,42 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         onExit={() => setShowExitConfirmModal(true)}
       />
 
-      {/* Main Assessment Full-Screen Zero-Scroll Container */}
-      <div className="w-full h-[calc(100vh-64px)] flex flex-col pl-16 sm:pl-20 pr-3 sm:pr-6 py-2.5 overflow-hidden select-none bg-[#F9FBF9] justify-between">
+      {/* Main Holographic Cockpit Zero-Scroll Container */}
+      <div className="w-full h-[calc(100vh-64px)] flex flex-col pl-16 sm:pl-20 pr-3 sm:pr-5 py-2.5 overflow-hidden select-none justify-between relative z-10">
         
         {/* Floating Game Combo Toast Notification */}
         {comboToast && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-5 sm:px-7 py-2 rounded-full shadow-[0_10px_25px_rgba(245,158,11,0.5)] border-2 border-white animate-bounce flex items-center gap-2.5 select-none pointer-events-none">
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-6 sm:px-8 py-2.5 rounded-full shadow-[0_10px_35px_rgba(245,158,11,0.6)] border-2 border-white animate-bounce flex items-center gap-3 select-none pointer-events-none">
             <Sparkles className="w-5 h-5 text-yellow-200 fill-yellow-200 animate-spin" style={{ animationDuration: '3s' }} />
             <div className="text-center">
-              <div className="text-sm sm:text-base font-black tracking-wide drop-shadow-xs">{comboToast.text}</div>
-              <div className="text-[10px] text-amber-100 font-bold">{comboToast.sub}</div>
+              <div className="text-sm sm:text-base font-black tracking-wide drop-shadow-sm">{comboToast.text}</div>
+              <div className="text-[11px] text-amber-100 font-bold">{comboToast.sub}</div>
             </div>
+            <Flame className="w-5 h-5 text-yellow-200 animate-pulse" />
           </div>
         )}
 
-        {/* Top Gamified Star Route HUD & Navigation Bar */}
-        <div className="w-full flex items-center justify-between bg-white rounded-2xl px-4 py-2 border-2 border-slate-200 shadow-2xs shrink-0 mb-2.5">
+        {/* Top Holographic Flight Command HUD */}
+        <div className="w-full flex items-center justify-between bg-slate-900/80 backdrop-blur-xl rounded-2xl px-4 py-2 border-2 border-cyan-500/30 shadow-[0_4px_24px_rgba(6,182,212,0.15)] shrink-0 mb-2">
+          
           {/* Left: Star Route Level Map & EXP Energy Badge */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Quick Prev / Next Level Jumper */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="flex items-center bg-slate-800/90 p-0.5 rounded-xl border border-cyan-500/30 shadow-inner">
               <button
                 onClick={() => {
                   sounds.playTap();
                   handlePrevTask();
                 }}
                 disabled={currentIdx === 0}
-                className="p-1 rounded-xl hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                 title="上一关"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4 text-cyan-400" />
               </button>
 
-              <div className="bg-gradient-to-r from-[#FFD54F] to-[#FFA000] text-[#574500] px-3 py-1 rounded-xl font-black text-xs border border-amber-400 shadow-2xs flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-[#725b00] fill-[#725b00]" />
+              <div className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-3.5 py-1 rounded-lg font-black text-xs sm:text-sm border border-amber-300 shadow-xs flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-900 fill-amber-900" />
                 <span>关卡 {currentIdx + 1} / {activeQuestions.length}</span>
               </div>
 
@@ -370,15 +406,15 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   handleNextTask();
                 }}
                 disabled={currentIdx >= activeQuestions.length - 1}
-                className="p-1 rounded-xl hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                 title="下一关"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 text-cyan-400" />
               </button>
             </div>
             
             {/* Interactive Star Route Nodes */}
-            <div className="hidden xl:flex items-center gap-1.5 bg-slate-50/90 px-3 py-1 rounded-2xl border border-slate-200 relative">
+            <div className="hidden xl:flex items-center gap-1 bg-slate-800/60 px-2.5 py-1 rounded-xl border border-cyan-500/20 relative">
               {activeQuestions.slice(0, 12).map((q, index) => {
                 const isCompleted = userAnswers[q.id] !== undefined;
                 const isActive = index === currentIdx;
@@ -394,14 +430,14 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                       setIsAnswerLocked(false);
                       setShowAnswerFeedback(false);
                     }}
-                    className={`relative w-6.5 h-6.5 rounded-full font-black text-[10px] flex items-center justify-center transition-all cursor-pointer ${
+                    className={`relative w-6.5 h-6.5 rounded-lg font-black text-[10px] flex items-center justify-center transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#FFD54F] text-[#574500] ring-3 ring-[#07C160] scale-110 shadow-md animate-pulse'
+                        ? 'bg-gradient-to-br from-amber-300 to-amber-500 text-slate-950 ring-2 ring-cyan-400 scale-110 shadow-[0_0_12px_#38bdf8] animate-pulse'
                         : isCompleted
                         ? 'bg-[#07C160] text-white shadow-xs hover:scale-105'
                         : isFinalBoss
-                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                        : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                        : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'
                     }`}
                     title={isFinalBoss ? '算法核心神庙' : `第 ${index + 1} 关`}
                   >
@@ -413,42 +449,42 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 );
               })}
               {activeQuestions.length > 12 && (
-                <span className="text-[10px] text-slate-400 font-bold ml-0.5">...共{activeQuestions.length}关</span>
+                <span className="text-[10px] text-cyan-400 font-bold ml-1">...共{activeQuestions.length}关</span>
               )}
             </div>
 
-            {/* EXP Energy HUD */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 text-emerald-950 px-3 py-1 rounded-2xl text-xs font-black border border-emerald-200 shadow-2xs">
-              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400 animate-pulse" />
-              <span>能量: {Object.keys(userAnswers).length * 120} EXP</span>
+            {/* EXP Energy Reactor Gauge */}
+            <div className="hidden sm:flex items-center gap-1.5 bg-cyan-950/60 text-cyan-300 px-3 py-1 rounded-xl text-xs font-black border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
+              <span>能量: {currentExp} EXP</span>
             </div>
           </div>
 
-          {/* Center: Competency Badges & Explorer Gadget Backpack */}
+          {/* Center: Competency Core & Tactical Gadgets */}
           <div className="flex items-center gap-2">
-            <span className="bg-[#4FC3F7]/15 text-[#006688] px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 border border-[#4FC3F7]/30 shadow-2xs">
-              <Brain className="w-3.5 h-3.5 text-[#006688]" />
+            <span className="bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 border border-cyan-400/40 shadow-xs">
+              <Brain className="w-3.5 h-3.5 text-cyan-400" />
               <span>{question.domain || question.dimension || '计算思维'}</span>
             </span>
-            <span className="bg-emerald-50 text-[#006d33] px-2.5 py-1 rounded-xl text-xs font-bold border border-emerald-200">
+            <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-xl text-xs font-bold border border-emerald-400/30">
               {question.subSkill || question.category}
             </span>
-            <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-xl text-xs font-black border border-amber-200">
+            <span className="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-xl text-xs font-black border border-amber-400/30">
               {'★'.repeat(question.difficultyHearts || 2)} 难度
             </span>
 
             {/* Explorer Gadgets Row */}
-            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+            <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block"></div>
             
             <button
               onClick={() => {
                 sounds.playTap();
                 setShowScratchpad(true);
               }}
-              className="bg-[#fef9c3] hover:bg-[#fef08a] text-[#854d0e] px-2.5 py-1 rounded-xl text-xs font-black border border-[#facc15] shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
+              className="bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2.5 py-1 rounded-xl text-xs font-black border border-amber-400/40 shadow-xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
               title="打开推演草稿纸"
             >
-              <Edit3 className="w-3 h-3 text-[#a16207]" />
+              <Edit3 className="w-3 h-3 text-amber-400" />
               <span className="hidden sm:inline">草稿纸</span>
             </button>
 
@@ -458,10 +494,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   sounds.playTap();
                   setShowInformaticsCard(true);
                 }}
-                className="bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] px-2.5 py-1 rounded-xl text-xs font-black border border-[#7dd3fc] shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
+                className="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 px-2.5 py-1 rounded-xl text-xs font-black border border-sky-400/40 shadow-xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
                 title="查看计算机科学原理"
               >
-                <Lightbulb className="w-3 h-3 text-[#0284c7]" />
+                <Lightbulb className="w-3 h-3 text-sky-400" />
                 <span className="hidden sm:inline">CS原理</span>
               </button>
             )}
@@ -471,10 +507,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 sounds.playRobot();
                 setShowXiaoZhiModal(true);
               }}
-              className="bg-[#006688] hover:bg-[#004f70] text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-md cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
               title="向导小智提示"
             >
-              <Bot className="w-3 h-3 text-[#75d1ff]" />
+              <Bot className="w-3 h-3 text-cyan-200" />
               <span className="hidden sm:inline">小智</span>
             </button>
 
@@ -483,7 +519,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               className={`p-1 rounded-xl border transition-all cursor-pointer ${
                 isSpeaking
                   ? 'bg-[#07C160] text-white border-[#006d33] animate-pulse'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
               }`}
               title="语音朗读题目"
             >
@@ -491,30 +527,53 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
             </button>
           </div>
 
-          {/* Right: Quick Timer */}
+          {/* Right: Ambient BGM Synthesizer & Chronometer */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-black text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
+            <button
+              onClick={handleToggleBgm}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
+                isBgmActive
+                  ? 'bg-purple-500/30 text-purple-300 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.4)] animate-pulse'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title={isBgmActive ? '点击关闭背景音' : '点击开启沉浸式背景音乐'}
+            >
+              <Music className={`w-3.5 h-3.5 ${isBgmActive ? 'text-purple-300' : 'text-slate-500'}`} />
+              <span className="hidden sm:inline">{isBgmActive ? '音效原声 🎵' : '背景音 🔇'}</span>
+            </button>
+
+            <span className="text-xs font-mono font-black text-cyan-300 bg-slate-800/90 px-2.5 py-1 rounded-xl border border-cyan-500/30 shadow-xs">
               ⏱️ {formatTimer(secondsRemaining)}
             </span>
           </div>
         </div>
 
-        {/* Main Two-Wing Interactive Stage (Pinned Viewport Height, ZERO Scroll, Expanded for Children UX) */}
+        {/* Main Two-Wing Interactive Stage (Holographic Cockpit Pod) */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3.5 min-h-0 overflow-hidden">
           
-          {/* LEFT WING: Large Dynamic Interactive Simulation Arena (col-span-7, ~58% width) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl p-4 sm:p-5 lg:p-6 border-3 border-slate-200 shadow-sm flex flex-col justify-between relative overflow-hidden h-full">
-            {/* Clue Badge Tag */}
-            <div className="flex items-center justify-between mb-2 shrink-0">
-              <div className="bg-[#c2e8ff] text-[#006688] px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-black border border-[#75d1ff] shadow-2xs flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4" />
+          {/* LEFT WING: Holographic Simulation Capsule (col-span-7, ~58% width) */}
+          <div className="lg:col-span-7 bg-white/95 backdrop-blur-xl rounded-3xl p-4 sm:p-5 border-2 border-cyan-400/30 shadow-[0_8px_32px_rgba(6,182,212,0.12)] flex flex-col justify-between relative overflow-hidden h-full text-slate-900">
+            
+            {/* Sci-Fi Decorative Corner Brackets */}
+            <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-500 pointer-events-none"></div>
+            <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-500 pointer-events-none"></div>
+            <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-500 pointer-events-none"></div>
+            <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-500 pointer-events-none"></div>
+
+            {/* Clue Badge Top Tag */}
+            <div className="flex items-center justify-between mb-1.5 shrink-0 px-1">
+              <div className="bg-[#c2e8ff] text-[#006688] px-3.5 py-1 rounded-full text-xs sm:text-sm font-black border border-[#75d1ff] shadow-2xs flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-cyan-600 animate-pulse" />
                 <span>{question.clueBadgeText || '动态交互仿真主舞台'}</span>
               </div>
-              <span className="text-xs text-slate-500 font-bold hidden sm:inline">可直接点击上方元素进行动手试算</span>
+              <span className="text-xs text-slate-500 font-bold hidden sm:flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>仿真引擎运转中 · 可直接动手试算</span>
+              </span>
             </div>
 
             {/* Dynamic Clue Component (Expanded Center Stage) */}
-            <div className="flex-1 flex items-center justify-center w-full min-h-0 overflow-hidden py-1">
+            <div className="flex-1 flex items-center justify-center w-full min-h-0 overflow-hidden py-0.5">
               <DynamicClueIllustration
                 clueType={question.clueType}
                 clueBadgeText={question.clueBadgeText}
@@ -528,11 +587,11 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 sounds.playRobot();
                 setShowXiaoZhiModal(true);
               }}
-              className="bg-gradient-to-r from-emerald-50 via-sky-50 to-amber-50/50 border border-emerald-200/80 p-2 sm:p-2.5 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-emerald-400 transition-all shadow-2xs shrink-0 mt-1.5"
+              className="bg-gradient-to-r from-emerald-50 via-sky-50 to-amber-50/60 border border-emerald-300 p-2 sm:p-2.5 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-emerald-500 transition-all shadow-xs shrink-0 mt-1"
               title="点击唤起向导小智提示"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-[#006688] text-white flex items-center justify-center text-sm shadow-xs shrink-0 animate-bounce">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#006688] to-[#0284c7] text-white flex items-center justify-center text-base shadow-sm shrink-0 animate-bounce">
                   🤖
                 </div>
                 <div className="text-xs text-slate-800 font-bold truncate">
@@ -557,9 +616,15 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
             </div>
           </div>
 
-          {/* RIGHT WING: Question Story + Stem + 4 Options + Primary Action (col-span-5, ~42% width) */}
-          <div className="lg:col-span-5 bg-white rounded-3xl p-4 sm:p-5 lg:p-6 border-3 border-slate-200 shadow-sm flex flex-col justify-between relative overflow-hidden h-full">
+          {/* RIGHT WING: Mission Terminal & Quantum Power Cells (col-span-5, ~42% width) */}
+          <div className="lg:col-span-5 bg-white/95 backdrop-blur-xl rounded-3xl p-4 sm:p-5 border-2 border-emerald-400/30 shadow-[0_8px_32px_rgba(7,193,96,0.12)] flex flex-col justify-between relative overflow-hidden h-full text-slate-900">
             
+            {/* Sci-Fi Decorative Corner Brackets */}
+            <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-emerald-500 pointer-events-none"></div>
+            <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-emerald-500 pointer-events-none"></div>
+            <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-emerald-500 pointer-events-none"></div>
+            <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-emerald-500 pointer-events-none"></div>
+
             {/* Top: Story Context Callout + Question Stem Headline */}
             <div className="space-y-2 shrink-0">
               {/* Story Context (Interactive Expandable Story Box) */}
@@ -596,10 +661,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               )}
 
               {/* Question Stem Headline (Bigger & High Contrast) */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-white to-transparent border-l-4 border-[#07C160]">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-white to-transparent border-l-4 border-[#07C160]">
                 <div className="flex items-start gap-2.5">
                   <span className="text-lg shrink-0 font-black text-[#006d33]">❓</span>
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-1.5 flex-1">
                     <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug tracking-tight text-left">
                       {question.stemText}
                     </h2>
@@ -610,7 +675,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                         {question.highlightWords.map((hw, i) => (
                           <span
                             key={i}
-                            className={`text-xs sm:text-sm font-black px-2.5 py-1 rounded-lg ${
+                            className={`text-xs sm:text-sm font-black px-2.5 py-0.5 rounded-lg ${
                               hw.type === 'blue'
                                 ? 'bg-sky-100 text-sky-900 border border-sky-300'
                                 : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
@@ -626,7 +691,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               </div>
             </div>
 
-            {/* Middle: 4 Vertical Stacked Option Cards (Optimized Sizing) */}
+            {/* Middle: 4 Vertical Stacked Quantum Power Cell Options */}
             <div className="space-y-2 flex-1 flex flex-col justify-center my-1.5 min-h-0">
               {question.options.map((opt) => {
                 const isSelected = selectedOption === opt.key;
@@ -636,16 +701,16 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                     onClick={() => handleSelectOption(opt.key)}
                     className={`w-full py-2.5 px-3 sm:py-3 sm:px-3.5 flex items-center gap-3 text-left relative rounded-2xl cursor-pointer transition-all duration-150 border-2 ${
                       isSelected
-                        ? 'border-[#07C160] bg-[#f0fdf4] shadow-xs ring-2 ring-[#07C160]/20'
-                        : 'border-slate-200 bg-white hover:border-[#07C160]/50 hover:bg-slate-50'
+                        ? 'border-[#07C160] bg-[#f0fdf4] shadow-md ring-3 ring-[#07C160]/30 scale-101'
+                        : 'border-slate-200 bg-white hover:border-[#07C160]/60 hover:bg-slate-50 hover:shadow-xs'
                     }`}
                   >
-                    {/* Option Letter Circle */}
+                    {/* Option Letter Hex Pad */}
                     <div
                       className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl flex items-center justify-center font-black text-sm sm:text-base transition-all shrink-0 ${
                         isSelected
                           ? 'bg-[#07C160] text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-700'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
                       }`}
                     >
                       {opt.key}
@@ -714,9 +779,9 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               </div>
             )}
 
-            {/* Bottom: Action Control Strip (Prev Button + Confirm/Lock + Next Button) */}
-            <div className="pt-2.5 border-t border-slate-100 flex flex-col gap-2 shrink-0 relative z-10">
-              {/* 3-Column Primary Navigation Dock */}
+            {/* Bottom: Tactical Flight Control Strip */}
+            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 shrink-0 relative z-10">
+              {/* 3-Column Primary Flight Console */}
               <div className="grid grid-cols-12 gap-2.5 w-full">
                 {/* 1. Prev Question Button */}
                 <button
@@ -732,7 +797,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   title={currentIdx === 0 ? '返回大厅' : '返回上一题'}
                 >
                   <ArrowLeft className="w-4 h-4 shrink-0" />
-                  <span>{currentIdx === 0 ? '返回' : '上一题'}</span>
+                  <span>{currentIdx === 0 ? '返回' : '上一关'}</span>
                 </button>
 
                 {/* 2. Main Confirm & Lock Button */}
@@ -743,7 +808,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                     isAnswerLocked
                       ? 'bg-[#dcfce7] text-[#166534] border-[#86efac] shadow-none cursor-default'
                       : selectedOption
-                      ? 'bg-[#07C160] text-white hover:brightness-110 active:translate-y-0.5 border-[#005225] shadow-md shadow-[#07C160]/20 animate-pulse'
+                      ? 'bg-[#07C160] text-white hover:brightness-110 active:translate-y-0.5 border-[#005225] shadow-lg shadow-[#07C160]/30 animate-pulse'
                       : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
                   }`}
                 >
@@ -765,12 +830,12 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   }}
                   className={`col-span-3 py-3 sm:py-3.5 px-2 rounded-2xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-1 cursor-pointer transition-all ${
                     currentIdx === activeQuestions.length - 1
-                      ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-2xs hover:brightness-105'
-                      : 'bg-[#07C160] text-white border-[#005225] hover:brightness-110 shadow-md shadow-[#07C160]/20'
+                      ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-md hover:brightness-105'
+                      : 'bg-[#07C160] text-white border-[#005225] hover:brightness-110 shadow-md shadow-[#07C160]/25'
                   }`}
-                  title={currentIdx === activeQuestions.length - 1 ? '交卷并查看能力画像' : '进入下一题'}
+                  title={currentIdx === activeQuestions.length - 1 ? '交卷并查看能力画像' : '跃迁至下一关'}
                 >
-                  <span>{currentIdx === activeQuestions.length - 1 ? '交卷画像' : '下一题'}</span>
+                  <span>{currentIdx === activeQuestions.length - 1 ? '交卷画像' : '下一关'}</span>
                   <ArrowRight className="w-4 h-4 shrink-0" />
                 </button>
               </div>
@@ -790,7 +855,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 {/* Real-time Answering Progress Badge */}
                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
                   <span className="w-2 h-2 rounded-full bg-[#07C160] animate-pulse"></span>
-                  <span>答题进度：{Object.keys(userAnswers).length + (selectedOption && !userAnswers[question.id] ? 1 : 0)} / {activeQuestions.length} 关</span>
+                  <span>答题进度：{answeredCount} / {activeQuestions.length} 关</span>
                 </div>
               </div>
             </div>
@@ -804,11 +869,11 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
       {/* Exit Confirmation Dialog Modal */}
       {showExitConfirmModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in select-none"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in select-none text-slate-900"
           onClick={() => setShowExitConfirmModal(false)}
         >
           <div
-            className="bg-white rounded-[32px] max-w-md w-full border-4 border-amber-300 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
+            className="bg-white rounded-[32px] max-w-md w-full border-4 border-amber-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -822,7 +887,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                     确认终止答题并返回大厅？
                   </h3>
                   <p className="text-xs text-slate-500 font-bold mt-0.5">
-                    当前测评正在进行中（已作答 {Object.keys(userAnswers).length + (selectedOption && !userAnswers[question.id] ? 1 : 0)} / {activeQuestions.length} 关）
+                    当前测评正在进行中（已作答 {answeredCount} / {activeQuestions.length} 关）
                   </p>
                 </div>
               </div>
@@ -876,8 +941,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
 
       {/* Loading Modal with Progress when computing capability profile */}
       {isCalculatingProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative w-full max-w-md bg-white rounded-[36px] p-8 border-4 border-[#07C160] shadow-[0_16px_0_0_#006d33] overflow-hidden flex flex-col items-center text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-300 text-slate-900">
+          <div className="relative w-full max-w-md bg-white rounded-[36px] p-8 border-4 border-[#07C160] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col items-center text-center">
             <div className="w-20 h-20 rounded-full bg-[#07C160] border-4 border-white flex items-center justify-center text-white text-3xl mb-4 shadow-md animate-bounce">
               🧠
             </div>
