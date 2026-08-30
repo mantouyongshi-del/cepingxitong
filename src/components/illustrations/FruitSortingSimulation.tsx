@@ -1,381 +1,503 @@
-import React, { useState } from 'react';
-import { Crown, Sparkles, Scale, RotateCcw, Eye, Search, Layers } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Crown, Sparkles, Scale, RotateCcw, Play, Pause, FastForward, CheckCircle2, HelpCircle } from 'lucide-react';
 import { sounds } from '../../utils/audio';
 
-interface AnimalBasket {
+interface AnimalData {
   id: string;
-  animal: string;
-  avatar: string;
   name: string;
+  avatar: string;
   apples: number;
   bananas: number;
   pears: number;
-  themeColor: string;
+  bgGradient: string;
   borderColor: string;
-  badgeBg: string;
+  textColor: string;
+  appleRank: number; // 1: B(5), 2: A(3)/D(3), 4: C(2), 5: E(1)
+  finalRank: number; // 1: B, 2: D, 3: A, 4: C, 5: E
 }
 
-const BASKETS_DATA: AnimalBasket[] = [
+const ANIMALS: AnimalData[] = [
   {
     id: 'A',
-    animal: '小熊',
+    name: '小熊 A',
     avatar: '🐻',
-    name: '果篮 A (小熊)',
     apples: 3,
     bananas: 2,
     pears: 3,
-    themeColor: 'from-amber-500/20 to-orange-500/10',
-    borderColor: 'border-amber-400',
-    badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
+    bgGradient: 'from-amber-500 to-orange-600',
+    borderColor: '#f59e0b',
+    textColor: 'text-amber-300',
+    appleRank: 2,
+    finalRank: 3,
   },
   {
     id: 'B',
-    animal: '小狮子',
+    name: '狮子 B',
     avatar: '🦁',
-    name: '果篮 B (小狮子)',
     apples: 5,
     bananas: 1,
     pears: 2,
-    themeColor: 'from-red-500/20 to-amber-500/10',
-    borderColor: 'border-red-400',
-    badgeBg: 'bg-rose-100 text-rose-900 border-rose-300',
+    bgGradient: 'from-red-500 to-rose-600',
+    borderColor: '#ef4444',
+    textColor: 'text-rose-300',
+    appleRank: 1,
+    finalRank: 1,
   },
   {
     id: 'C',
-    animal: '小狐狸',
+    name: '狐狸 C',
     avatar: '🦊',
-    name: '果篮 C (小狐狸)',
     apples: 2,
     bananas: 3,
     pears: 3,
-    themeColor: 'from-orange-500/20 to-amber-500/10',
-    borderColor: 'border-orange-400',
-    badgeBg: 'bg-orange-100 text-orange-900 border-orange-300',
+    bgGradient: 'from-orange-500 to-amber-600',
+    borderColor: '#f97316',
+    textColor: 'text-orange-300',
+    appleRank: 4,
+    finalRank: 4,
   },
   {
     id: 'D',
-    animal: '小熊猫',
+    name: '熊猫 D',
     avatar: '🐼',
-    name: '果篮 D (小熊猫)',
     apples: 3,
     bananas: 4,
     pears: 1,
-    themeColor: 'from-emerald-500/20 to-teal-500/10',
-    borderColor: 'border-emerald-400',
-    badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+    bgGradient: 'from-emerald-500 to-teal-600',
+    borderColor: '#10b981',
+    textColor: 'text-emerald-300',
+    appleRank: 2,
+    finalRank: 2,
   },
   {
     id: 'E',
-    animal: '小兔子',
+    name: '白兔 E',
     avatar: '🐰',
-    name: '果篮 E (小兔子)',
     apples: 1,
     bananas: 5,
     pears: 2,
-    themeColor: 'from-pink-500/20 to-purple-500/10',
-    borderColor: 'border-pink-400',
-    badgeBg: 'bg-pink-100 text-pink-900 border-pink-300',
+    bgGradient: 'from-purple-500 to-pink-600',
+    borderColor: '#a855f7',
+    textColor: 'text-purple-300',
+    appleRank: 5,
+    finalRank: 5,
   },
 ];
 
-type LensMode = 'all' | 'compare' | 'apples' | 'bananas';
+type SimulationStep = 'idle' | 'step1_apples' | 'step2_tiebreaker' | 'compare_custom';
 
 export const FruitSortingSimulation: React.FC = () => {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeLens, setActiveLens] = useState<LensMode>('all');
+  const [currentStep, setCurrentStep] = useState<SimulationStep>('idle');
+  const [isPlayingAuto, setIsPlayingAuto] = useState<boolean>(false);
+  const [selectedPair, setSelectedPair] = useState<string[]>(['A', 'D']);
+  const [scaleAngle, setScaleAngle] = useState<number>(0);
+  const [scanProgress, setScanProgress] = useState<number>(0); // 0 to 100
+  const autoPlayTimerRef = useRef<number | null>(null);
 
-  const handleSelectBasket = (id: string) => {
-    sounds.playTap();
-    if (selectedIds.includes(id)) {
-      setSelectedIds((prev) => prev.filter((item) => item !== id));
-    } else {
-      if (selectedIds.length >= 2) {
-        setSelectedIds([selectedIds[1], id]);
+  // Smooth physics oscillation loop for the scale balance
+  useEffect(() => {
+    let targetAngle = 0;
+    const a1 = ANIMALS.find((a) => a.id === selectedPair[0]);
+    const a2 = ANIMALS.find((a) => a.id === selectedPair[1]);
+
+    if (a1 && a2) {
+      if (a1.apples > a2.apples) {
+        targetAngle = -14;
+      } else if (a1.apples < a2.apples) {
+        targetAngle = 14;
       } else {
-        setSelectedIds((prev) => [...prev, id]);
+        // Tie in apples! Bananas decide
+        if (a1.bananas > a2.bananas) {
+          targetAngle = -14;
+        } else if (a1.bananas < a2.bananas) {
+          targetAngle = 14;
+        } else {
+          targetAngle = 0;
+        }
+      }
+    }
+
+    let current = scaleAngle;
+    let velocity = 0;
+    let animId: number;
+
+    const springLoop = () => {
+      const spring = (targetAngle - current) * 0.12;
+      velocity = (velocity + spring) * 0.78; // damping
+      current += velocity;
+      setScaleAngle(current);
+
+      if (Math.abs(velocity) > 0.05 || Math.abs(targetAngle - current) > 0.1) {
+        animId = requestAnimationFrame(springLoop);
+      } else {
+        setScaleAngle(targetAngle);
+      }
+    };
+
+    animId = requestAnimationFrame(springLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [selectedPair]);
+
+  // Automated step-by-step playback controller
+  useEffect(() => {
+    if (!isPlayingAuto) {
+      if (autoPlayTimerRef.current) clearInterval(autoPlayTimerRef.current);
+      return;
+    }
+
+    let stepIndex = 0;
+    const sequence: SimulationStep[] = ['idle', 'step1_apples', 'step2_tiebreaker'];
+
+    autoPlayTimerRef.current = window.setInterval(() => {
+      stepIndex = (stepIndex + 1) % sequence.length;
+      const nextStep = sequence[stepIndex];
+      setCurrentStep(nextStep);
+      sounds.playTap();
+
+      if (nextStep === 'step1_apples') {
+        setScanProgress(0);
+      } else if (nextStep === 'step2_tiebreaker') {
+        setSelectedPair(['A', 'D']);
+      }
+    }, 3800);
+
+    return () => {
+      if (autoPlayTimerRef.current) clearInterval(autoPlayTimerRef.current);
+    };
+  }, [isPlayingAuto]);
+
+  // Scanning laser animation
+  useEffect(() => {
+    if (currentStep === 'step1_apples') {
+      let p = 0;
+      const timer = setInterval(() => {
+        p += 2;
+        if (p > 100) p = 100;
+        setScanProgress(p);
+      }, 30);
+      return () => clearInterval(timer);
+    }
+  }, [currentStep]);
+
+  const handleSelectAnimal = (id: string) => {
+    sounds.playTap();
+    setCurrentStep('compare_custom');
+    if (selectedPair.includes(id)) {
+      if (selectedPair.length > 1) {
+        setSelectedPair(selectedPair.filter((item) => item !== id));
+      }
+    } else {
+      if (selectedPair.length >= 2) {
+        setSelectedPair([selectedPair[1], id]);
+      } else {
+        setSelectedPair([...selectedPair, id]);
       }
     }
   };
 
-  const handleReset = () => {
-    sounds.playTap();
-    setSelectedIds([]);
-    setActiveLens('all');
-  };
-
-  const b1 = BASKETS_DATA.find((b) => b.id === selectedIds[0]);
-  const b2 = BASKETS_DATA.find((b) => b.id === selectedIds[1]);
-
-  // Scale tilt calculation
-  let scaleTilt = 0; // -15 (left heavy), 0 (equal), 15 (right heavy)
-  let compareVerdict = '';
-  let decisiveReason = '';
-
-  if (b1 && b2) {
-    if (b1.apples > b2.apples) {
-      scaleTilt = -12;
-      compareVerdict = `👑 【${b1.name}】 优先接见！`;
-      decisiveReason = `第一主键决胜：苹果数量 ${b1.apples} > ${b2.apples}，无需比对香蕉。`;
-    } else if (b1.apples < b2.apples) {
-      scaleTilt = 12;
-      compareVerdict = `👑 【${b2.name}】 优先接见！`;
-      decisiveReason = `第一主键决胜：苹果数量 ${b2.apples} > ${b1.apples}，无需比对香蕉。`;
-    } else {
-      // Tie in apples! Check bananas
-      if (b1.bananas > b2.bananas) {
-        scaleTilt = -12;
-        compareVerdict = `👑 【${b1.name}】 优先接见！`;
-        decisiveReason = `平局激活第二主键：苹果数量相同 (${b1.apples} = ${b2.apples}) ➔ 香蕉决胜 ${b1.bananas} > ${b2.bananas}！`;
-      } else if (b1.bananas < b2.bananas) {
-        scaleTilt = 12;
-        compareVerdict = `👑 【${b2.name}】 优先接见！`;
-        decisiveReason = `平局激活第二主键：苹果数量相同 (${b1.apples} = ${b2.apples}) ➔ 香蕉决胜 ${b2.bananas} > ${b1.bananas}！`;
-      } else {
-        scaleTilt = 0;
-        compareVerdict = `🤝 【${b1.name}】 与 【${b2.name}】 完全相同`;
-        decisiveReason = '苹果与香蕉数量完全一致。';
-      }
-    }
-  }
+  const a1 = ANIMALS.find((a) => a.id === selectedPair[0]);
+  const a2 = ANIMALS.find((a) => a.id === selectedPair[1]);
 
   return (
-    <div className="w-full h-full flex flex-col justify-between select-none p-1 sm:p-2">
+    <div className="w-full h-full flex flex-col justify-between select-none p-1 sm:p-2 font-sans relative overflow-hidden">
       
-      {/* 1. Top Throne & Queen's Royal Rule Banner */}
+      {/* 1. Top Control Bar: Queen's Rule & Playback Controller */}
       <div className="flex items-center justify-between gap-2 mb-1.5 shrink-0">
-        <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 text-white px-3.5 py-1.5 rounded-2xl shadow-sm border border-amber-300 flex items-center gap-2">
+        {/* Royal Rule Badge */}
+        <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 text-white px-3 py-1 rounded-2xl shadow-sm border border-amber-300 flex items-center gap-2">
           <Crown className="w-4 h-4 text-yellow-200 fill-yellow-300 animate-bounce" />
-          <div className="text-xs sm:text-sm font-black flex items-center gap-2">
-            <span>女王接见法则：</span>
-            <span className="bg-white/20 px-2 py-0.5 rounded-lg">① 苹果 🍎 最多优先</span>
+          <div className="text-xs sm:text-sm font-black flex items-center gap-1.5">
+            <span>女王规则：</span>
+            <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[11px] sm:text-xs">① 苹果 🍎 多优先</span>
             <span className="text-yellow-200">➔</span>
-            <span className="bg-white/20 px-2 py-0.5 rounded-lg">② 平局比香蕉 🍌 谁多</span>
+            <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[11px] sm:text-xs">② 平局比香蕉 🍌 谁多</span>
           </div>
         </div>
 
-        {/* Interactive Lens Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
+        {/* Dynamic Simulation Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-cyan-500/30">
           <button
             onClick={() => {
               sounds.playTap();
-              setActiveLens('all');
+              setIsPlayingAuto(!isPlayingAuto);
             }}
-            className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-              activeLens === 'all'
-                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-                : 'text-slate-500 hover:text-slate-800'
+            className={`px-2 py-1 rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition-all ${
+              isPlayingAuto
+                ? 'bg-amber-400 text-slate-950 shadow-[0_0_10px_rgba(251,191,36,0.5)] animate-pulse'
+                : 'bg-slate-800 text-cyan-300 hover:bg-slate-700'
             }`}
-            title="查看完整水果篮"
+            title={isPlayingAuto ? '暂停演播' : '开始全流程动态演播'}
           >
-            <Layers className="w-3 h-3 inline mr-0.5" />
-            <span>全景</span>
+            {isPlayingAuto ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 fill-cyan-300" />}
+            <span>{isPlayingAuto ? '演播中' : '自动演示'}</span>
           </button>
+
           <button
             onClick={() => {
               sounds.playTap();
-              setActiveLens('apples');
+              setIsPlayingAuto(false);
+              setCurrentStep('step1_apples');
+              setScanProgress(0);
             }}
             className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-              activeLens === 'apples'
+              currentStep === 'step1_apples'
                 ? 'bg-rose-500 text-white shadow-xs'
-                : 'text-rose-700 hover:bg-rose-50'
+                : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="聚焦第一主键：苹果数量"
+            title="第一轮：扫描并比对苹果数量"
           >
-            <span>🍎 苹果透视</span>
+            <span>🍎 1.比苹果</span>
           </button>
+
           <button
             onClick={() => {
               sounds.playTap();
-              setActiveLens('bananas');
+              setIsPlayingAuto(false);
+              setCurrentStep('step2_tiebreaker');
+              setSelectedPair(['A', 'D']);
             }}
             className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
-              activeLens === 'bananas'
+              currentStep === 'step2_tiebreaker'
                 ? 'bg-amber-500 text-white shadow-xs'
-                : 'text-amber-700 hover:bg-amber-50'
+                : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="聚焦平局主键：香蕉数量"
+            title="第二轮：A与D苹果相同，香蕉破平局"
           >
-            <span>🍌 香蕉透视</span>
+            <span>🍌 2.破平局</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sounds.playTap();
+              setIsPlayingAuto(false);
+              setCurrentStep('idle');
+              setSelectedPair(['A', 'D']);
+            }}
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title="重置初始状态"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* 2. Middle Interactive Stage: 5 Cute Animals with 3D Baskets */}
-      <div className="flex-1 flex flex-col justify-center min-h-0 py-1">
-        <div className="grid grid-cols-5 gap-2 sm:gap-2.5 w-full">
-          {BASKETS_DATA.map((b) => {
-            const isSelected = selectedIds.includes(b.id);
-            const isAppleFocus = activeLens === 'apples';
-            const isBananaFocus = activeLens === 'bananas';
+      {/* 2. Middle Live Stage: Animated Animal Fruit Carts on Royal Red Carpet */}
+      <div className="flex-1 bg-gradient-to-b from-slate-900/90 via-slate-800/80 to-slate-900/95 rounded-3xl p-3 sm:p-4 border-2 border-cyan-500/30 shadow-inner flex flex-col justify-between relative overflow-hidden min-h-0">
+        
+        {/* Scanning Laser Line during Step 1 */}
+        {currentStep === 'step1_apples' && (
+          <div
+            className="absolute top-0 bottom-0 w-1 bg-rose-400 shadow-[0_0_15px_#f43f5e] z-20 pointer-events-none transition-all duration-75"
+            style={{ left: `${scanProgress}%` }}
+          >
+            <div className="absolute top-2 -translate-x-1/2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-md whitespace-nowrap">
+              🔍 苹果主键扫描中...
+            </div>
+          </div>
+        )}
+
+        {/* Animal Parade Grid */}
+        <div className="grid grid-cols-5 gap-2 sm:gap-2.5 w-full relative z-10">
+          {ANIMALS.map((animal, idx) => {
+            const isSelected = selectedPair.includes(animal.id);
+            const isTiePartner = currentStep === 'step2_tiebreaker' && (animal.id === 'A' || animal.id === 'D');
+            const isLeader = currentStep === 'step1_apples' && animal.id === 'B';
+            const isLast = currentStep === 'step1_apples' && animal.id === 'E';
 
             return (
               <div
-                key={b.id}
-                onClick={() => handleSelectBasket(b.id)}
-                className={`relative flex flex-col items-center justify-between p-2.5 rounded-3xl border-3 transition-all duration-200 cursor-pointer bg-gradient-to-b ${b.themeColor} ${
-                  isSelected
-                    ? `${b.borderColor} ring-4 ring-amber-400/50 scale-103 shadow-lg bg-white`
-                    : `${b.borderColor}/40 bg-white/90 hover:scale-101 hover:bg-white`
+                key={animal.id}
+                onClick={() => handleSelectAnimal(animal.id)}
+                className={`relative flex flex-col items-center justify-between p-2 rounded-2xl border-2 transition-all duration-300 cursor-pointer bg-slate-800/90 ${
+                  isTiePartner
+                    ? 'border-amber-400 ring-4 ring-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.6)] scale-105 bg-slate-800'
+                    : isLeader
+                    ? 'border-rose-400 ring-3 ring-rose-400/50 shadow-[0_0_15px_rgba(244,63,94,0.5)] scale-103'
+                    : isSelected
+                    ? 'border-cyan-400 ring-3 ring-cyan-400/40 scale-102 bg-slate-800 shadow-md'
+                    : 'border-slate-700 hover:border-slate-500 hover:scale-101'
                 }`}
               >
-                {/* Animal Avatar & Name Badge */}
-                <div className="flex flex-col items-center gap-1 w-full">
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-2xl sm:text-3xl hover:rotate-6 transition-transform">
-                    {b.avatar}
+                {/* Ranking Tag on Top */}
+                {currentStep === 'step1_apples' && (
+                  <div className="absolute -top-2.5 bg-slate-900 border border-slate-600 px-2 py-0.5 rounded-full text-[10px] font-black shadow-md">
+                    {isLeader && <span className="text-rose-400">🍎 最多(5) ➔ 第1位</span>}
+                    {isLast && <span className="text-purple-400">🍎 最少(1) ➔ 第5位</span>}
+                    {animal.id === 'C' && <span className="text-orange-400">🍎 2个 ➔ 第4位</span>}
+                    {(animal.id === 'A' || animal.id === 'D') && (
+                      <span className="text-amber-300 animate-pulse">🍎 并列(3) ❓</span>
+                    )}
                   </div>
-                  <div className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-black border ${b.badgeBg} shadow-2xs`}>
-                    {b.id} · {b.animal}
+                )}
+
+                {currentStep === 'step2_tiebreaker' && isTiePartner && (
+                  <div className="absolute -top-2.5 bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow-[0_0_10px_rgba(251,191,36,0.8)] animate-bounce">
+                    ⚡ 破平局决胜
                   </div>
+                )}
+
+                {/* Animated Animal Avatar with Physical Bobbing */}
+                <div className="flex flex-col items-center gap-1 w-full mt-1">
+                  <div
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 flex items-center justify-center text-2xl sm:text-3xl shadow-sm transition-transform"
+                    style={{
+                      animation: 'bounce 2s infinite ease-in-out',
+                      animationDelay: `${idx * 180}ms`,
+                    }}
+                  >
+                    {animal.avatar}
+                  </div>
+                  <span className="text-xs font-black text-slate-200">
+                    {animal.name}
+                  </span>
                 </div>
 
-                {/* Fruit Inventory Visualizer */}
+                {/* Fruit Stacks */}
                 <div className="w-full space-y-1 my-1.5">
                   {/* Apple Bar */}
                   <div
-                    className={`p-1 rounded-xl flex items-center justify-between transition-all border ${
-                      isAppleFocus
-                        ? 'bg-rose-500 text-white border-rose-600 ring-2 ring-rose-300 font-black scale-105'
-                        : 'bg-rose-50 text-rose-950 border-rose-200 font-bold'
+                    className={`p-1 rounded-xl flex items-center justify-between border transition-all ${
+                      currentStep === 'step1_apples' || (currentStep === 'step2_tiebreaker' && isTiePartner)
+                        ? 'bg-rose-950/60 border-rose-500 text-rose-200 ring-1 ring-rose-400'
+                        : 'bg-slate-900/80 border-slate-700 text-slate-300'
                     }`}
                   >
-                    <div className="flex items-center gap-0.5 flex-wrap">
-                      {Array.from({ length: b.apples }).map((_, i) => (
-                        <span key={i} className="text-xs sm:text-sm animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
-                          🍎
-                        </span>
+                    <div className="flex items-center gap-0.5 overflow-hidden">
+                      {Array.from({ length: animal.apples }).map((_, i) => (
+                        <span key={i} className="text-xs">🍎</span>
                       ))}
                     </div>
-                    <span className="text-[11px] sm:text-xs font-black shrink-0 ml-1">
-                      {b.apples} 苹果
+                    <span className="text-[11px] font-black text-rose-300 shrink-0 ml-1">
+                      {animal.apples}
                     </span>
                   </div>
 
                   {/* Banana Bar */}
                   <div
-                    className={`p-1 rounded-xl flex items-center justify-between transition-all border ${
-                      isBananaFocus
-                        ? 'bg-amber-500 text-white border-amber-600 ring-2 ring-amber-300 font-black scale-105'
-                        : 'bg-amber-50 text-amber-950 border-amber-200 font-bold'
+                    className={`p-1 rounded-xl flex items-center justify-between border transition-all ${
+                      currentStep === 'step2_tiebreaker' && isTiePartner
+                        ? 'bg-amber-950/80 border-amber-400 text-amber-200 ring-2 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] scale-103 font-black'
+                        : 'bg-slate-900/80 border-slate-700 text-slate-300'
                     }`}
                   >
-                    <div className="flex items-center gap-0.5 flex-wrap">
-                      {Array.from({ length: b.bananas }).map((_, i) => (
-                        <span key={i} className="text-xs sm:text-sm animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
-                          🍌
-                        </span>
+                    <div className="flex items-center gap-0.5 overflow-hidden">
+                      {Array.from({ length: animal.bananas }).map((_, i) => (
+                        <span key={i} className="text-xs">🍌</span>
                       ))}
                     </div>
-                    <span className="text-[11px] sm:text-xs font-black shrink-0 ml-1">
-                      {b.bananas} 香蕉
+                    <span className="text-[11px] font-black text-amber-300 shrink-0 ml-1">
+                      {animal.bananas}
                     </span>
                   </div>
 
                   {/* Pear Bar */}
-                  {activeLens === 'all' && (
-                    <div className="p-1 rounded-xl flex items-center justify-between bg-emerald-50 text-emerald-950 border border-emerald-200 text-[10px] sm:text-[11px] font-bold">
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: b.pears }).map((_, i) => (
-                          <span key={i} className="text-xs">🍐</span>
-                        ))}
-                      </div>
-                      <span className="shrink-0">{b.pears} 梨</span>
-                    </div>
-                  )}
+                  <div className="p-0.5 px-1 rounded-lg flex items-center justify-between bg-slate-900/50 border border-slate-800 text-[10px] text-slate-400">
+                    <span className="text-[10px]">🍐 x{animal.pears}</span>
+                    <span className="text-[9px] text-slate-500">次要</span>
+                  </div>
                 </div>
 
-                {/* Selection Tag */}
-                <div className="w-full text-center">
-                  <span
-                    className={`text-[10px] font-black px-2 py-0.5 rounded-full transition-all ${
-                      isSelected
-                        ? 'bg-amber-500 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                    }`}
-                  >
-                    {isSelected ? '已选入比对台 ✓' : '点击比对 🔍'}
-                  </span>
-                </div>
+                {/* Click Tag */}
+                <span
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
+                    isSelected
+                      ? 'bg-cyan-500 text-slate-950 font-black shadow-xs'
+                      : 'bg-slate-900 text-slate-400'
+                  }`}
+                >
+                  {isSelected ? '比对中 ✓' : '点击比对'}
+                </span>
               </div>
             );
           })}
         </div>
-      </div>
 
-      {/* 3. Interactive Magic Scale Comparison Arena */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-3 sm:p-3.5 rounded-2xl border-2 border-cyan-400/40 shadow-md shrink-0 mt-1">
-        {b1 && b2 ? (
-          <div className="flex flex-col gap-2">
-            {/* Verdict Header */}
-            <div className="flex items-center justify-between border-b border-slate-700/80 pb-1.5">
-              <div className="flex items-center gap-2">
-                <Scale className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
-                <span className="text-xs sm:text-sm font-black text-amber-300">
-                  {compareVerdict}
-                </span>
-              </div>
-              <button
-                onClick={handleReset}
-                className="text-[11px] font-black text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>清空比对</span>
-              </button>
-            </div>
-
-            {/* Dynamic Physical Balance Scale Visualizer */}
-            <div className="flex items-center justify-between gap-3 text-xs bg-slate-950/60 p-2.5 rounded-xl border border-cyan-500/20">
-              {/* Left Pan */}
-              <div className={`flex-1 p-2 rounded-xl border transition-all text-center ${
-                scaleTilt < 0
-                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
-                  : 'bg-slate-900 border-slate-700 text-slate-300'
-              }`}>
-                <div className="font-black text-sm">{b1.avatar} {b1.name}</div>
-                <div className="text-[11px] text-slate-300 mt-0.5">
-                  🍎 {b1.apples} 苹果 · 🍌 {b1.bananas} 香蕉
-                </div>
-              </div>
-
-              {/* Physical Pivot / Beam */}
-              <div className="flex flex-col items-center shrink-0 px-2">
-                <span className="text-xs font-black text-cyan-400">⚖️ 优先度</span>
-                <span className="text-base font-black text-amber-400">
-                  {scaleTilt < 0 ? '◀ 优先' : scaleTilt > 0 ? '优先 ▶' : '＝ 平局'}
-                </span>
-              </div>
-
-              {/* Right Pan */}
-              <div className={`flex-1 p-2 rounded-xl border transition-all text-center ${
-                scaleTilt > 0
-                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/50 shadow-xs'
-                  : 'bg-slate-900 border-slate-700 text-slate-300'
-              }`}>
-                <div className="font-black text-sm">{b2.avatar} {b2.name}</div>
-                <div className="text-[11px] text-slate-300 mt-0.5">
-                  🍎 {b2.apples} 苹果 · 🍌 {b2.bananas} 香蕉
-                </div>
+        {/* 3. Physical Dual-Arm Balance Scale Mechanism */}
+        <div className="mt-2 bg-slate-950/90 rounded-2xl p-3 border border-cyan-500/30 flex flex-col items-center justify-center relative">
+          
+          {/* Animated Tilting Beam */}
+          <div className="w-full flex items-center justify-between px-6 sm:px-12 relative min-h-[54px]">
+            {/* Center Pivot Pillar */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-2 bottom-0 w-3 bg-gradient-to-b from-cyan-400 to-slate-700 rounded-t-full shadow-[0_0_10px_#06b6d4] flex flex-col items-center">
+              <div className="w-5 h-5 rounded-full bg-amber-400 border-2 border-slate-900 shadow-md -mt-2.5 flex items-center justify-center text-[10px] font-black text-slate-950">
+                ⚖️
               </div>
             </div>
 
-            {/* Decisive Logic Explanation */}
-            <div className="text-xs text-cyan-200 font-medium leading-relaxed bg-cyan-950/40 p-2 rounded-lg border border-cyan-500/30">
-              💡 <span className="font-bold text-white">{decisiveReason}</span>
+            {/* Left Pan (a1) */}
+            <div
+              className="flex-1 flex flex-col items-center transition-transform duration-200"
+              style={{ transform: `translateY(${scaleAngle * 1.5}px)` }}
+            >
+              {a1 ? (
+                <div className="bg-slate-900 border-2 border-cyan-400 px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2">
+                  <span className="text-xl">{a1.avatar}</span>
+                  <div className="text-left">
+                    <div className="text-xs font-black text-cyan-300">{a1.name}</div>
+                    <div className="text-[10px] text-slate-300">
+                      🍎 {a1.apples} · 🍌 {a1.bananas}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500">选择动物 1</div>
+              )}
+            </div>
+
+            {/* Tilting Indicator */}
+            <div className="w-16 text-center z-10">
+              <span className="text-xs font-mono font-black text-amber-400">
+                {scaleAngle < -2 ? '◀ 优先' : scaleAngle > 2 ? '优先 ▶' : '＝ 平局'}
+              </span>
+            </div>
+
+            {/* Right Pan (a2) */}
+            <div
+              className="flex-1 flex flex-col items-center transition-transform duration-200"
+              style={{ transform: `translateY(${-scaleAngle * 1.5}px)` }}
+            >
+              {a2 ? (
+                <div className="bg-slate-900 border-2 border-cyan-400 px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2">
+                  <span className="text-xl">{a2.avatar}</span>
+                  <div className="text-left">
+                    <div className="text-xs font-black text-cyan-300">{a2.name}</div>
+                    <div className="text-[10px] text-slate-300">
+                      🍎 {a2.apples} · 🍌 {a2.bananas}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500">选择动物 2</div>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
-              <div className="text-xs sm:text-sm font-black text-slate-100">
-                👑 皇家接见顺序推导：<span className="text-amber-300 font-mono">1st ➔ 2nd ➔ 3rd ➔ 4th ➔ 5th = ❓</span>
+
+          {/* Real-time Dynamic Logic Explanation */}
+          <div className="w-full mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-xs px-2">
+            {a1 && a2 ? (
+              <div className="text-cyan-200 font-medium flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                {a1.apples !== a2.apples ? (
+                  <span>
+                    第一主键比对：<strong className="text-rose-300">【{a1.name}】({a1.apples}苹果)</strong> vs <strong className="text-rose-300">【{a2.name}】({a2.apples}苹果)</strong> ➔ 苹果更多者优先接见！
+                  </span>
+                ) : (
+                  <span>
+                    平局第二主键决胜：苹果相同({a1.apples}={a2.apples}) ➔ 比对香蕉：<strong className="text-amber-300">【{a1.name}】({a1.bananas}香蕉)</strong> vs <strong className="text-amber-300">【{a2.name}】({a2.bananas}香蕉)</strong> ➔ 香蕉多者胜出！
+                  </span>
+                )}
               </div>
-            </div>
-            <div className="text-xs font-bold text-cyan-300 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-500/40 shrink-0">
-              点击上方任意两个动物进行天平比对 ⚖️
-            </div>
+            ) : (
+              <span className="text-slate-400">点击上方任意两个动物，魔法天平将演示物理比对与破平局过程</span>
+            )}
+
+            <span className="text-[11px] font-black text-amber-300 bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-500/30 shrink-0 ml-2">
+              完整顺序待求 = ❓
+            </span>
           </div>
-        )}
+
+        </div>
+
       </div>
 
     </div>
