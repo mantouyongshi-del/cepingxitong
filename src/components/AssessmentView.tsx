@@ -20,7 +20,6 @@ import {
   Volume2,
   Brain,
   Bot,
-  HelpCircle,
   Sparkles,
   CheckCircle2,
   Edit3,
@@ -62,6 +61,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean>(false);
   const [isStoryExpanded, setIsStoryExpanded] = useState<boolean>(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
+  const [showProgressModal, setShowProgressModal] = useState<boolean>(false);
+  const [showTimerModal, setShowTimerModal] = useState<boolean>(false);
+  const [showUnansweredModal, setShowUnansweredModal] = useState<boolean>(false);
+  const [warningToast, setWarningToast] = useState<string | null>(null);
   const [comboStreak, setComboStreak] = useState<number>(0);
   const [comboToast, setComboToast] = useState<{ text: string; sub: string } | null>(null);
   const [isWarping, setIsWarping] = useState<boolean>(false);
@@ -157,7 +160,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const handleLockAnswer = () => {
     if (!selectedOption) {
       sounds.playRobot();
-      alert('请先选择一个答案选项哦！');
+      setWarningToast('⚠️ 请先在右侧选择一个能量电芯（A/B/C/D）哦！');
+      setTimeout(() => setWarningToast(null), 2000);
       return;
     }
     
@@ -277,15 +281,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
       // Must answer ALL questions to generate capability profile
       const unanswered = activeQuestions.filter((q) => !latestAnswers[q.id]);
       if (unanswered.length > 0) {
-        sounds.playTap();
-        const firstUnansweredIndex = activeQuestions.findIndex((q) => !latestAnswers[q.id]);
-        alert(
-          `还有 ${unanswered.length} 道题目尚未作答（例如第 ${firstUnansweredIndex + 1} 关），必须完成全部答题后才能交卷生成能力画像！`
-        );
-        if (firstUnansweredIndex !== -1) {
-          setCurrentIdx(firstUnansweredIndex);
-          setSelectedOption(latestAnswers[activeQuestions[firstUnansweredIndex].id] || '');
-        }
+        sounds.playRobot();
+        setShowUnansweredModal(true);
         return;
       }
       startCalculatingProfileAndNavigate(latestAnswers);
@@ -351,9 +348,9 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         onSelectTab={(tab) => {
           setActiveSideTab(tab);
           if (tab === 'timer') {
-            alert(`当前剩余探索时间：${formatTimer(secondsRemaining)}`);
+            setShowTimerModal(true);
           } else if (tab === 'progress') {
-            alert(`探索进度：当前进行第 ${currentIdx + 1} 关，共 ${activeQuestions.length} 关。`);
+            setShowProgressModal(true);
           }
         }}
         timeRemainingText={formatTimer(secondsRemaining)}
@@ -376,6 +373,13 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
           </div>
         )}
 
+        {/* Warning Toast Floating Notification */}
+        {warningToast && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 to-rose-600 text-white px-6 py-2.5 rounded-full shadow-[0_10px_35px_rgba(244,63,94,0.6)] border-2 border-white animate-bounce flex items-center gap-2 select-none pointer-events-none text-xs sm:text-sm font-black">
+            <span>{warningToast}</span>
+          </div>
+        )}
+
         {/* Top Holographic Flight Command HUD */}
         <div className="w-full flex items-center justify-between bg-slate-900/80 backdrop-blur-xl rounded-2xl px-4 py-2 border-2 border-cyan-500/30 shadow-[0_4px_24px_rgba(6,182,212,0.15)] shrink-0 mb-2">
           
@@ -395,7 +399,11 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 <ChevronLeft className="w-4 h-4 text-cyan-400" />
               </button>
 
-              <div className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-3.5 py-1 rounded-lg font-black text-xs sm:text-sm border border-amber-300 shadow-xs flex items-center gap-1.5">
+              <div
+                onClick={() => setShowProgressModal(true)}
+                className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-3.5 py-1 rounded-lg font-black text-xs sm:text-sm border border-amber-300 shadow-xs flex items-center gap-1.5 cursor-pointer hover:brightness-110 transition-all"
+                title="点击展开全景航线图"
+              >
                 <Sparkles className="w-3.5 h-3.5 text-amber-900 fill-amber-900" />
                 <span>关卡 {currentIdx + 1} / {activeQuestions.length}</span>
               </div>
@@ -449,12 +457,21 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 );
               })}
               {activeQuestions.length > 12 && (
-                <span className="text-[10px] text-cyan-400 font-bold ml-1">...共{activeQuestions.length}关</span>
+                <button
+                  onClick={() => setShowProgressModal(true)}
+                  className="text-[10px] text-cyan-400 font-bold ml-1 hover:underline cursor-pointer"
+                >
+                  ...共{activeQuestions.length}关
+                </button>
               )}
             </div>
 
             {/* EXP Energy Reactor Gauge */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-cyan-950/60 text-cyan-300 px-3 py-1 rounded-xl text-xs font-black border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+            <div
+              onClick={() => setShowProgressModal(true)}
+              className="hidden sm:flex items-center gap-1.5 bg-cyan-950/60 text-cyan-300 px-3 py-1 rounded-xl text-xs font-black border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)] cursor-pointer hover:border-cyan-400 transition-all"
+              title="查看探索能量总览"
+            >
               <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
               <span>能量: {currentExp} EXP</span>
             </div>
@@ -542,9 +559,13 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               <span className="hidden sm:inline">{isBgmActive ? '音效原声 🎵' : '背景音 🔇'}</span>
             </button>
 
-            <span className="text-xs font-mono font-black text-cyan-300 bg-slate-800/90 px-2.5 py-1 rounded-xl border border-cyan-500/30 shadow-xs">
-              ⏱️ {formatTimer(secondsRemaining)}
-            </span>
+            <button
+              onClick={() => setShowTimerModal(true)}
+              className="text-xs font-mono font-black text-cyan-300 bg-slate-800/90 px-2.5 py-1 rounded-xl border border-cyan-500/30 shadow-xs hover:border-cyan-400 transition-all cursor-pointer flex items-center gap-1"
+              title="查看任务计时器详情"
+            >
+              <span>⏱️ {formatTimer(secondsRemaining)}</span>
+            </button>
           </div>
         </div>
 
@@ -853,10 +874,14 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 </button>
 
                 {/* Real-time Answering Progress Badge */}
-                <div className="flex items-center gap-1.5 text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                <button
+                  onClick={() => setShowProgressModal(true)}
+                  className="flex items-center gap-1.5 text-xs font-black text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 hover:border-emerald-400 cursor-pointer transition-all"
+                  title="点击查看航线总览"
+                >
                   <span className="w-2 h-2 rounded-full bg-[#07C160] animate-pulse"></span>
                   <span>答题进度：{answeredCount} / {activeQuestions.length} 关</span>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -866,7 +891,259 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
 
       </div>
 
-      {/* Exit Confirmation Dialog Modal */}
+      {/* 4. Holographic Timer Hub Modal */}
+      {showTimerModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in select-none text-slate-100"
+          onClick={() => setShowTimerModal(false)}
+        >
+          <div
+            className="bg-slate-900/95 rounded-[36px] max-w-md w-full border-2 border-cyan-400/50 shadow-[0_0_50px_rgba(6,182,212,0.3)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-2xl shrink-0">
+                  ⏱️
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-cyan-300">
+                    星际探索任务计时器
+                  </h3>
+                  <p className="text-xs text-slate-400 font-bold">
+                    保持平稳推导节奏，时间非常充足
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playTap();
+                  setShowTimerModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Giant Glowing Digital Clock */}
+            <div className="bg-slate-950/80 border border-cyan-500/30 rounded-3xl p-6 flex flex-col items-center justify-center gap-2 shadow-inner">
+              <div className="text-4xl sm:text-5xl font-mono font-black text-cyan-400 tracking-wider drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]">
+                {formatTimer(secondsRemaining)}
+              </div>
+              <div className="text-xs text-emerald-400 font-black flex items-center gap-1.5 mt-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>能量系统运转正常 · 推荐答题时长 15~20 分钟</span>
+              </div>
+            </div>
+
+            {/* AI Companion Advice */}
+            <div className="bg-cyan-950/40 border border-cyan-500/30 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-cyan-200">
+              <span className="text-2xl shrink-0">🤖</span>
+              <p className="leading-relaxed font-medium">
+                小智向导提示：“不用着急，遇到难题先观察左侧实验台的数据流转，理清规律再做选择！”
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                sounds.playSelect();
+                setShowTimerModal(false);
+              }}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:brightness-110 text-slate-950 font-black text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] cursor-pointer transition-all active:scale-95"
+            >
+              保持专注，继续探索 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Holographic Star Route Progress Modal */}
+      {showProgressModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in select-none text-slate-100"
+          onClick={() => setShowProgressModal(false)}
+        >
+          <div
+            className="bg-slate-900/95 rounded-[36px] max-w-lg w-full border-2 border-emerald-400/50 shadow-[0_0_50px_rgba(7,193,96,0.3)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-2xl shrink-0">
+                  🗺️
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-emerald-300">
+                    星际探索总航线图
+                  </h3>
+                  <p className="text-xs text-slate-400 font-bold">
+                    当前已完成 {answeredCount} / {activeQuestions.length} 关 · 累计能量 {currentExp} EXP
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playTap();
+                  setShowProgressModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Progress Bar Gauge */}
+            <div className="w-full bg-slate-950 rounded-2xl p-3.5 border border-slate-800 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs font-black">
+                <span className="text-slate-400">总探索进度</span>
+                <span className="text-emerald-400">{Math.round((answeredCount / activeQuestions.length) * 100)}%</span>
+              </div>
+              <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-[#07C160] to-cyan-400 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${(answeredCount / activeQuestions.length) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Interactive Level Grid */}
+            <div className="max-h-56 overflow-y-auto pr-1">
+              <div className="grid grid-cols-5 gap-2.5">
+                {activeQuestions.map((q, index) => {
+                  const isCompleted = userAnswers[q.id] !== undefined;
+                  const isActive = index === currentIdx;
+
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => {
+                        sounds.playTap();
+                        setCurrentIdx(index);
+                        setSelectedOption(userAnswers[q.id] || '');
+                        setIsAnswerLocked(false);
+                        setShowAnswerFeedback(false);
+                        setShowProgressModal(false);
+                      }}
+                      className={`p-2.5 rounded-2xl border-2 flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)] scale-102'
+                          : isCompleted
+                          ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300 hover:bg-emerald-500/30'
+                          : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <span className="text-base">{isCompleted ? '💎' : index === activeQuestions.length - 1 ? '🏆' : '📍'}</span>
+                      <span className="text-xs font-black">第 {index + 1} 关</span>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {isCompleted ? `已答【${userAnswers[q.id]}】` : '待探索'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                sounds.playSelect();
+                setShowProgressModal(false);
+              }}
+              className="w-full py-3.5 rounded-2xl bg-[#07C160] hover:bg-[#059669] text-white font-black text-sm shadow-[0_0_20px_rgba(7,193,96,0.4)] cursor-pointer transition-all active:scale-95"
+            >
+              继续当前关卡 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Unanswered Directives Holographic Modal */}
+      {showUnansweredModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in select-none text-slate-100"
+          onClick={() => setShowUnansweredModal(false)}
+        >
+          <div
+            className="bg-slate-900/95 rounded-[36px] max-w-md w-full border-2 border-amber-400/50 shadow-[0_0_50px_rgba(245,158,11,0.35)] overflow-hidden flex flex-col p-6 gap-5 animate-in zoom-in-95 relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-2xl shrink-0">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-amber-300">
+                    尚有未探索关卡
+                  </h3>
+                  <p className="text-xs text-slate-400 font-bold">
+                    必须全部完成答题后才能生成能力画像
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sounds.playTap();
+                  setShowUnansweredModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Unanswered Badges List */}
+            <div className="bg-amber-950/30 border border-amber-500/30 rounded-2xl p-4 space-y-2">
+              <div className="text-xs font-black text-amber-200 flex items-center gap-1.5">
+                <span>📋 待完成关卡清单：</span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {activeQuestions.map((q, idx) => {
+                  if (userAnswers[q.id]) return null;
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => {
+                        sounds.playTap();
+                        setCurrentIdx(idx);
+                        setSelectedOption('');
+                        setIsAnswerLocked(false);
+                        setShowAnswerFeedback(false);
+                        setShowUnansweredModal(false);
+                      }}
+                      className="px-3 py-1 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400 text-amber-300 text-xs font-black cursor-pointer transition-all hover:scale-105"
+                    >
+                      关卡 {idx + 1} ➔ 前往
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                sounds.playSelect();
+                const firstUnansweredIndex = activeQuestions.findIndex((q) => !userAnswers[q.id]);
+                if (firstUnansweredIndex !== -1) {
+                  setCurrentIdx(firstUnansweredIndex);
+                  setSelectedOption('');
+                  setIsAnswerLocked(false);
+                  setShowAnswerFeedback(false);
+                }
+                setShowUnansweredModal(false);
+              }}
+              className="w-full py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-sm shadow-[0_0_20px_rgba(245,158,11,0.4)] cursor-pointer transition-all active:scale-95"
+            >
+              前往第一道未答关卡 🎯
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Exit Confirmation Dialog Modal */}
       {showExitConfirmModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in select-none text-slate-900"
@@ -939,7 +1216,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
         </div>
       )}
 
-      {/* Loading Modal with Progress when computing capability profile */}
+      {/* 8. Loading Modal with Progress when computing capability profile */}
       {isCalculatingProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-300 text-slate-900">
           <div className="relative w-full max-w-md bg-white rounded-[36px] p-8 border-4 border-[#07C160] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col items-center text-center">
