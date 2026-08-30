@@ -28,6 +28,7 @@ import {
   BarChart3,
   Edit3,
   Lightbulb,
+  Zap,
 } from 'lucide-react';
 
 interface AssessmentViewProps {
@@ -61,6 +62,8 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean>(false);
   const [isStoryExpanded, setIsStoryExpanded] = useState<boolean>(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
+  const [comboStreak, setComboStreak] = useState<number>(0);
+  const [comboToast, setComboToast] = useState<{ text: string; sub: string } | null>(null);
 
   // Sync initialIndex when it changes externally
   useEffect(() => {
@@ -137,19 +140,40 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
       alert('请先选择一个答案选项哦！');
       return;
     }
-    sounds.playLockSuccess();
+    
+    // Increment combo streak & play audio
+    const newStreak = comboStreak + 1;
+    setComboStreak(newStreak);
+    sounds.playCombo(newStreak);
     setIsAnswerLocked(true);
     setShowAnswerFeedback(true);
+
     setUserAnswers((prev) => ({
       ...prev,
       [question.id]: selectedOption,
     }));
 
+    // Trigger Game Combo Floating Badge
+    let toastText = '🌟 能量已充能 +120 EXP!';
+    let toastSub = '探索坐标已锁定';
+    if (newStreak === 2) {
+      toastText = '⚡ Combo x2! 算法敏锐!';
+      toastSub = '连续推导命中能量节点';
+    } else if (newStreak === 3) {
+      toastText = '🚀 Combo x3! 思维超频!';
+      toastSub = '计算思维正在全速运转';
+    } else if (newStreak >= 4) {
+      toastText = `🔥 Combo x${newStreak}! 算法架构大师!`;
+      toastSub = '势不可挡的探险先锋';
+    }
+    setComboToast({ text: toastText, sub: toastSub });
+    setTimeout(() => setComboToast(null), 1800);
+
     if (selectedOption === question.correctAnswer) {
       try {
         confetti({
-          particleCount: 50,
-          spread: 60,
+          particleCount: 60,
+          spread: 70,
           origin: { y: 0.7 },
           colors: ['#07C160', '#FFD54F', '#4FC3F7', '#FF8A80'],
         });
@@ -306,25 +330,36 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
       {/* Main Assessment Full-Screen Zero-Scroll Container */}
       <div className="w-full h-[calc(100vh-64px)] flex flex-col pl-16 sm:pl-20 pr-3 sm:pr-6 py-2.5 overflow-hidden select-none bg-[#F9FBF9] justify-between">
         
-        {/* Top Ultra-Compact Header & Navigation Bar */}
+        {/* Floating Game Combo Toast Notification */}
+        {comboToast && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-5 sm:px-7 py-2 rounded-full shadow-[0_10px_25px_rgba(245,158,11,0.5)] border-2 border-white animate-bounce flex items-center gap-2.5 select-none pointer-events-none">
+            <Sparkles className="w-5 h-5 text-yellow-200 fill-yellow-200 animate-spin" style={{ animationDuration: '3s' }} />
+            <div className="text-center">
+              <div className="text-sm sm:text-base font-black tracking-wide drop-shadow-xs">{comboToast.text}</div>
+              <div className="text-[10px] text-amber-100 font-bold">{comboToast.sub}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Top Gamified Star Route HUD & Navigation Bar */}
         <div className="w-full flex items-center justify-between bg-white rounded-2xl px-4 py-2 border-2 border-slate-200 shadow-2xs shrink-0 mb-2.5">
-          {/* Left: Level Switcher with explicit Prev/Next Chevrons & Progress Node Bar */}
-          <div className="flex items-center gap-2">
+          {/* Left: Star Route Level Map & EXP Energy Badge */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Quick Prev / Next Level Jumper */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-2xl border border-slate-200 shadow-2xs">
               <button
                 onClick={() => {
                   sounds.playTap();
                   handlePrevTask();
                 }}
                 disabled={currentIdx === 0}
-                className="p-1 rounded-lg hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-                title="上一题"
+                className="p-1 rounded-xl hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                title="上一关"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <div className="bg-[#FFD54F] text-[#574500] px-3 py-1 rounded-lg font-black text-xs border border-amber-300 shadow-2xs flex items-center gap-1">
+              <div className="bg-gradient-to-r from-[#FFD54F] to-[#FFA000] text-[#574500] px-3 py-1 rounded-xl font-black text-xs border border-amber-400 shadow-2xs flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-[#725b00] fill-[#725b00]" />
                 <span>关卡 {currentIdx + 1} / {activeQuestions.length}</span>
               </div>
@@ -335,18 +370,20 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   handleNextTask();
                 }}
                 disabled={currentIdx >= activeQuestions.length - 1}
-                className="p-1 rounded-lg hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-                title="下一题"
+                className="p-1 rounded-xl hover:bg-white text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                title="下一关"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
             
-            {/* Mini Progress Circles */}
-            <div className="hidden lg:flex items-center gap-1">
-              {activeQuestions.slice(0, 15).map((q, index) => {
+            {/* Interactive Star Route Nodes */}
+            <div className="hidden xl:flex items-center gap-1.5 bg-slate-50/90 px-3 py-1 rounded-2xl border border-slate-200 relative">
+              {activeQuestions.slice(0, 12).map((q, index) => {
                 const isCompleted = userAnswers[q.id] !== undefined;
                 const isActive = index === currentIdx;
+                const isFinalBoss = index === activeQuestions.length - 1;
+
                 return (
                   <button
                     key={q.id}
@@ -357,38 +394,50 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                       setIsAnswerLocked(false);
                       setShowAnswerFeedback(false);
                     }}
-                    className={`w-6 h-6 rounded-full font-black text-[10px] flex items-center justify-center transition-all cursor-pointer ${
+                    className={`relative w-6.5 h-6.5 rounded-full font-black text-[10px] flex items-center justify-center transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#FFD54F] text-[#574500] ring-2 ring-[#07C160] scale-110'
+                        ? 'bg-[#FFD54F] text-[#574500] ring-3 ring-[#07C160] scale-110 shadow-md animate-pulse'
                         : isCompleted
-                        ? 'bg-[#07C160] text-white'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        ? 'bg-[#07C160] text-white shadow-xs hover:scale-105'
+                        : isFinalBoss
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'
                     }`}
+                    title={isFinalBoss ? '算法核心神庙' : `第 ${index + 1} 关`}
                   >
-                    {index + 1}
+                    {isCompleted ? '💎' : isFinalBoss ? '🏆' : isActive ? `${index + 1}` : index + 1}
+                    {isActive && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                    )}
                   </button>
                 );
               })}
-              {activeQuestions.length > 15 && (
-                <span className="text-[10px] text-slate-400 font-bold ml-1">...共{activeQuestions.length}关</span>
+              {activeQuestions.length > 12 && (
+                <span className="text-[10px] text-slate-400 font-bold ml-0.5">...共{activeQuestions.length}关</span>
               )}
+            </div>
+
+            {/* EXP Energy HUD */}
+            <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 text-emerald-950 px-3 py-1 rounded-2xl text-xs font-black border border-emerald-200 shadow-2xs">
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400 animate-pulse" />
+              <span>能量: {Object.keys(userAnswers).length * 120} EXP</span>
             </div>
           </div>
 
-          {/* Center: Competency Badges & Quick Tools */}
+          {/* Center: Competency Badges & Explorer Gadget Backpack */}
           <div className="flex items-center gap-2">
-            <span className="bg-[#4FC3F7]/15 text-[#006688] px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 border border-[#4FC3F7]/30">
+            <span className="bg-[#4FC3F7]/15 text-[#006688] px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 border border-[#4FC3F7]/30 shadow-2xs">
               <Brain className="w-3.5 h-3.5 text-[#006688]" />
               <span>{question.domain || question.dimension || '计算思维'}</span>
             </span>
-            <span className="bg-emerald-50 text-[#006d33] px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-200">
+            <span className="bg-emerald-50 text-[#006d33] px-2.5 py-1 rounded-xl text-xs font-bold border border-emerald-200">
               {question.subSkill || question.category}
             </span>
-            <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-lg text-xs font-black border border-amber-200">
+            <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-xl text-xs font-black border border-amber-200">
               {'★'.repeat(question.difficultyHearts || 2)} 难度
             </span>
 
-            {/* Quick Tools */}
+            {/* Explorer Gadgets Row */}
             <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
             
             <button
@@ -396,7 +445,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                 sounds.playTap();
                 setShowScratchpad(true);
               }}
-              className="bg-[#fef9c3] hover:bg-[#fef08a] text-[#854d0e] px-2.5 py-1 rounded-lg text-xs font-black border border-[#facc15] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+              className="bg-[#fef9c3] hover:bg-[#fef08a] text-[#854d0e] px-2.5 py-1 rounded-xl text-xs font-black border border-[#facc15] shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
               title="打开推演草稿纸"
             >
               <Edit3 className="w-3 h-3 text-[#a16207]" />
@@ -409,7 +458,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
                   sounds.playTap();
                   setShowInformaticsCard(true);
                 }}
-                className="bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] px-2.5 py-1 rounded-lg text-xs font-black border border-[#7dd3fc] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+                className="bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] px-2.5 py-1 rounded-xl text-xs font-black border border-[#7dd3fc] shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
                 title="查看计算机科学原理"
               >
                 <Lightbulb className="w-3 h-3 text-[#0284c7]" />
@@ -419,10 +468,10 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
 
             <button
               onClick={() => {
-                sounds.playTap();
+                sounds.playRobot();
                 setShowXiaoZhiModal(true);
               }}
-              className="bg-[#006688] hover:bg-[#004f70] text-white px-2.5 py-1 rounded-lg text-xs font-black shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+              className="bg-[#006688] hover:bg-[#004f70] text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-2xs cursor-pointer flex items-center gap-1 transition-all hover:scale-102"
               title="向导小智提示"
             >
               <Bot className="w-3 h-3 text-[#75d1ff]" />
@@ -431,7 +480,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
 
             <button
               onClick={handleAudioPromptClick}
-              className={`p-1 rounded-lg border transition-all cursor-pointer ${
+              className={`p-1 rounded-xl border transition-all cursor-pointer ${
                 isSpeaking
                   ? 'bg-[#07C160] text-white border-[#006d33] animate-pulse'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
@@ -442,9 +491,9 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
             </button>
           </div>
 
-          {/* Right: Quick Timer & Exit */}
+          {/* Right: Quick Timer */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-black text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+            <span className="text-xs font-mono font-black text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
               ⏱️ {formatTimer(secondsRemaining)}
             </span>
           </div>
@@ -473,9 +522,38 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
               />
             </div>
 
-            {/* Stage Bottom Footer */}
-            <div className="text-xs font-bold text-slate-500 bg-slate-50 py-1.5 px-3.5 rounded-xl text-center w-full mt-1.5 shrink-0">
-              💡 观察动态演进规律与物理流转，推导并选择右侧符合全部约束的正确答案
+            {/* Stage Bottom Footer: Mascot Companion Dynamic Speech */}
+            <div
+              onClick={() => {
+                sounds.playRobot();
+                setShowXiaoZhiModal(true);
+              }}
+              className="bg-gradient-to-r from-emerald-50 via-sky-50 to-amber-50/50 border border-emerald-200/80 p-2 sm:p-2.5 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-emerald-400 transition-all shadow-2xs shrink-0 mt-1.5"
+              title="点击唤起向导小智提示"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-[#006688] text-white flex items-center justify-center text-sm shadow-xs shrink-0 animate-bounce">
+                  🤖
+                </div>
+                <div className="text-xs text-slate-800 font-bold truncate">
+                  {isAnswerLocked ? (
+                    <span className="text-[#006d33] font-black">
+                      小智：“坐标锁定完毕！进入下一关探险吧！🚀”
+                    </span>
+                  ) : selectedOption ? (
+                    <span className="text-sky-900 font-black">
+                      小智：“已选【{selectedOption}】，确认后点击下方【确认锁定】哦！💡”
+                    </span>
+                  ) : (
+                    <span className="text-slate-700">
+                      小智：“观察上方实验台的规律，把线索组合起来就能解开谜题！🔍”
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className="text-[11px] font-black text-blue-700 bg-white px-2.5 py-0.5 rounded-full border border-blue-200 shrink-0 shadow-2xs">
+                向导锦囊 💡
+              </span>
             </div>
           </div>
 

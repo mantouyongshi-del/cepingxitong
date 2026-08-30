@@ -120,6 +120,56 @@ class SoundEngine {
     } catch {}
   }
 
+  // Game Combo streak sound with ascending pitch
+  playCombo(comboLevel: number = 1) {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const baseFreq = 440 * Math.pow(1.15, Math.min(comboLevel, 6)); // ascending musical scale
+      const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2];
+      notes.forEach((freq, i) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.05);
+
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.05 + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime + i * 0.05);
+        osc.stop(this.ctx.currentTime + i * 0.05 + 0.2);
+      });
+    } catch {}
+  }
+
+  // Energy crystal charge sound
+  playCrystalCharge() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.25);
+
+      gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.25);
+    } catch {}
+  }
+
   // Speech TTS for question reading
   speakText(text: string, onEnd?: () => void) {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
